@@ -46,7 +46,7 @@ elif len(choice) == 1:
     retry = None # init while-loop
     while (retry != False):
         title, status = m.handle(sys.argv[1])
-        title = f'finished\n{title}'
+        main = 'finished'
         if (status != 0):
             print('')
             answer = input('retry? [y/n] ')
@@ -56,7 +56,7 @@ elif len(choice) == 1:
                 retry = True
             else:
                 retry = False
-                title = f'failed\n{sys.argv[1]}'
+                main, title = 'failed',sys.argv[1]
         else:
             retry = False
 
