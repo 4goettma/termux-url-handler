@@ -1,0 +1,68 @@
+#!/usr/bin/python3
+import sys, importlib, re, time, os, subprocess
+
+if (len(sys.argv) < 2):
+    exit(f'Missing parameters. Please use:\n\n  {os.path.basename(__file__)} [URL]\n\nExiting.')
+
+def chooseFrom(array, prompt):
+    import dynmen
+    return dynmen.Menu(['fzf', '-e', '--prompt={}:'.format(prompt)])(array).selected
+
+# get filenames ending on .py in ./modules
+basedir = '{}/modules'.format(os.path.abspath(os.path.dirname(__file__)))
+files = [f for f in os.listdir(basedir) if os.path.isfile(os.path.join(basedir, f)) and f.endswith('.py')]
+
+# import modules and store handles in a dictionary
+modules = dict()
+for m in [f[:-3] for f in files]:
+    try:
+        sys.path.append(basedir)
+        modules[m] = importlib.import_module(m)
+    except ImportError:
+        print('importing module {} failed'.format(m))
+
+# analyze each 'manually imported' module and store candidates
+choice = dict()
+for m in modules:
+    # check each listener
+    found = False
+    for l in modules[m].listeners:
+        # skip if there has already a matching listener been found
+        if (not found and re.findall(l, sys.argv[1])):
+            choice[m] = modules[m]
+            found = True
+
+if len(choice) > 1:
+    try:
+        t = chooseFrom(choice.keys(),'?')
+    except:
+        print('an error occured')
+        time.sleep(3)
+    else:
+        choice[t].handle(sys.argv[1])
+elif len(choice) == 1:
+    m = next(iter(choice.values()))
+
+    retry = None # init while-loop
+    while (retry != False):
+        title, status = m.handle(sys.argv[1])
+        title = f'finished\n{title}'
+        if (status != 0):
+            print('')
+            answer = input('retry? [y/n] ')
+            while (answer not in ['y','n']):
+                answer = input('retry? [y/n] ')
+            if (answer == 'y'):
+                retry = True
+            else:
+                retry = False
+                title = f'failed\n{sys.argv[1]}'
+        else:
+            retry = False
+
+    subprocess.call(['termux-notification', '-t', main, '-c', f'{title}'])
+else:
+    print('no module found')
+    print('URL copied to clipboard')
+    subprocess.call(['termux-clipboard-set', sys.argv[1]])
+    time.sleep(1)
